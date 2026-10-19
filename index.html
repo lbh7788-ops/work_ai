@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>긴급 발주 상세 작성 - SmartInventory</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS (xlsx) for exporting excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans KR', 'Inter', sans-serif; background-color: #f8fafc; }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-slate-900 text-white border-b border-slate-800 px-6 py-4 sticky top-0 z-30 flex items-center justify-between shadow-md">
+        <div class="flex items-center space-x-4">
+            <a href="index.html" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors flex items-center justify-center">
+                <i class="fa-solid fa-arrow-left text-sm"></i>
+            </a>
+            <div>
+                <h1 class="text-xl font-bold flex items-center">
+                    <i class="fa-solid fa-truck-ramp-box text-rose-500 mr-2.5"></i>
+                    긴급 발주 상세 작성
+                </h1>
+                <p class="text-xs text-slate-400">안전재고 미달 품목 거래처 정보 확인 및 발주 수량 세부 입력</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-3">
+            <a href="index.html" class="px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-all">
+                대시보드로 돌아가기
+            </a>
+            <button onclick="submitPurchaseOrder()" class="px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-lg shadow-rose-600/30 transition-all flex items-center">
+                <i class="fa-solid fa-paper-plane mr-1.5"></i> 발주서 확정 및 전송
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="max-w-7xl w-full mx-auto p-6 space-y-6 flex-1">
+        
+        <!-- Order Overview Key Indicators -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center space-x-4">
+                <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl font-bold">
+                    <i class="fa-solid fa-boxes-packing"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-500 font-medium">긴급 발주 대상</p>
+                    <p class="text-xl font-extrabold text-slate-900 mt-0.5"><span id="order-item-count">8</span>개 품목</p>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center space-x-4">
+                <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl font-bold">
+                    <i class="fa-solid fa-calculator"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-500 font-medium">총 발주 예정 수량</p>
+                    <p class="text-xl font-extrabold text-indigo-600 mt-0.5"><span id="order-total-qty">0</span> 개</p>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center space-x-4">
+                <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl font-bold">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-500 font-medium">총 예상 발주 금액</p>
+                    <p class="text-xl font-extrabold text-emerald-600 mt-0.5"><span id="order-total-amount">₩0</span></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vendor & Order Quantity Input Table -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="p-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900">거래처별 긴급 발주 명세서</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">거래처 연락처 정보를 확인하고, 필요에 따라 발주 수량을 조절하세요.</p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button onclick="downloadOrderExcel()" class="px-3.5 py-2 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition-all flex items-center">
+                        <i class="fa-solid fa-file-excel mr-1.5 text-emerald-600"></i> 발주 명세서 엑셀 다운로드
+                    </button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 text-slate-600 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
+                            <th class="py-3.5 px-4">품목코드</th>
+                            <th class="py-3.5 px-4">품목명</th>
+                            <th class="py-3.5 px-4">주요 거래처</th>
+                            <th class="py-3.5 px-4">거래처 연락처 / 담당자</th>
+                            <th class="py-3.5 px-4 text-right">현재고</th>
+                            <th class="py-3.5 px-4 text-right">안전재고</th>
+                            <th class="py-3.5 px-4 text-center text-rose-600 font-bold w-44">발주 수량 입력</th>
+                            <th class="py-3.5 px-4 text-right">단가(원)</th>
+                            <th class="py-3.5 px-4 text-right font-bold">합계금액(원)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="order-table-body" class="divide-y divide-slate-100 text-slate-700">
+                        <!-- Dynamic Order Rows -->
+                    </tbody>
+                    <tfoot>
+                        <tr class="bg-slate-50 font-bold text-slate-900 border-t-2 border-slate-200">
+                            <td colspan="6" class="py-4 px-4 text-right">최종 합계:</td>
+                            <td id="order-footer-qty" class="py-4 px-4 text-center text-rose-600 text-base">0 개</td>
+                            <td class="py-4 px-4"></td>
+                            <td id="order-footer-price" class="py-4 px-4 text-right text-indigo-700 text-base">₩0</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div class="p-5 bg-slate-50 border-t border-slate-200 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div class="text-xs text-slate-500 flex items-center">
+                    <i class="fa-solid fa-circle-info mr-1.5 text-indigo-500 text-sm"></i>
+                    발주 수량을 직접 수정하시면 총 예상 발주 금액이 실시간으로 재산출됩니다.
+                </div>
+                <div class="flex items-center space-x-3">
+                    <a href="index.html" class="px-5 py-2.5 text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-100 transition-all">
+                        취소
+                    </a>
+                    <button onclick="submitPurchaseOrder()" class="px-6 py-2.5 text-xs font-bold text-white bg-rose-600 rounded-xl hover:bg-rose-700 shadow-lg shadow-rose-600/30 transition-all flex items-center">
+                        <i class="fa-solid fa-paper-plane mr-1.5"></i> 발주서 확정 전송
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- JavaScript Data Logic -->
+    <script>
+        // Data for urgent reorder items
+        const urgentItems = [
+            { code: "CON-204", name: "종이컵(13oz)", unitPrice: 200, currentStock: 150, safetyStock: 300, reorderQty: 250, vendor: "(주)한성제지", contact: "02-555-1234 / 김철수 팀장" },
+            { code: "CON-206", name: "핸드타올 2겹", unitPrice: 25000, currentStock: 8, safetyStock: 20, reorderQty: 20, vendor: "삼우위생상사", contact: "031-400-8899 / 이영희 과장" },
+            { code: "ELE-102", name: "무선 마우스 A형", unitPrice: 15000, currentStock: 12, safetyStock: 30, reorderQty: 25, vendor: "테크마트(주)", contact: "02-888-9900 / 박민수 차장" },
+            { code: "ELE-104", name: "외장SSD 1TB", unitPrice: 120000, currentStock: 3, safetyStock: 10, reorderQty: 10, vendor: "스마트스토리지", contact: "02-711-2244 / 최성호 이사" },
+            { code: "ELE-106", name: "USB-C 타입 케이블(2m)", unitPrice: 8000, currentStock: 15, safetyStock: 50, reorderQty: 40, vendor: "디지털파트너스", contact: "02-333-7711 / 정소연 대리" },
+            { code: "LOG-302", name: "스트레치 필름(공업용)", unitPrice: 18000, currentStock: 5, safetyStock: 15, reorderQty: 15, vendor: "대한물류자재", contact: "032-511-3322 / 강동원 부장" },
+            { code: "LOG-303", name: "PP 밴딩끈", unitPrice: 22000, currentStock: 2, safetyStock: 10, reorderQty: 10, vendor: "신진패키징", contact: "031-900-4455 / 윤서준 팀장" },
+            { code: "OFF-006", name: "네임펜(검정, 12자루)", unitPrice: 9000, currentStock: 4, safetyStock: 15, reorderQty: 15, vendor: "오피스네트", contact: "02-123-4567 / 한지민 과장" }
+        ];
+
+        function formatKRW(num) {
+            return num.toLocaleString('ko-KR');
+        }
+
+        // Render Order Form Table
+        function renderOrderForm() {
+            const tbody = document.getElementById('order-table-body');
+            tbody.innerHTML = '';
+
+            urgentItems.forEach((item, index) => {
+                const defaultQty = item.reorderQty > 0 ? item.reorderQty : (item.safetyStock - item.currentStock);
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition-colors";
+                tr.innerHTML = `
+                    <td class="py-3.5 px-4 font-mono font-bold text-indigo-600 text-xs">${item.code}</td>
+                    <td class="py-3.5 px-4 font-bold text-slate-900">${item.name}</td>
+                    <td class="py-3.5 px-4 text-slate-700 font-medium">${item.vendor}</td>
+                    <td class="py-3.5 px-4 text-slate-500 font-mono text-xs">${item.contact}</td>
+                    <td class="py-3.5 px-4 text-right text-slate-500">${formatKRW(item.currentStock)}</td>
+                    <td class="py-3.5 px-4 text-right text-slate-500">${formatKRW(item.safetyStock)}</td>
+                    <td class="py-3.5 px-4 text-center">
+                        <input type="number" min="1" value="${defaultQty}" 
+                            data-index="${index}" data-unitprice="${item.unitPrice}"
+                            onchange="recalculateTotals()" oninput="recalculateTotals()"
+                            class="order-qty-input w-28 bg-rose-50 border border-rose-300 rounded-lg text-center font-bold text-rose-700 py-1.5 focus:ring-2 focus:ring-rose-500 focus:outline-none text-xs shadow-sm">
+                    </td>
+                    <td class="py-3.5 px-4 text-right text-slate-600">₩${formatKRW(item.unitPrice)}</td>
+                    <td class="py-3.5 px-4 text-right font-extrabold text-slate-900 order-row-total">₩${formatKRW(defaultQty * item.unitPrice)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            recalculateTotals();
+        }
+
+        // Recalculate totals on quantity input change
+        function recalculateTotals() {
+            const qtyInputs = document.querySelectorAll('.order-qty-input');
+            const rowTotals = document.querySelectorAll('.order-row-total');
+            
+            let totalQty = 0;
+            let totalPrice = 0;
+
+            qtyInputs.forEach((input, idx) => {
+                const qty = Math.max(0, parseInt(input.value) || 0);
+                const unitPrice = parseFloat(input.getAttribute('data-unitprice')) || 0;
+                const rowSum = qty * unitPrice;
+
+                totalQty += qty;
+                totalPrice += rowSum;
+
+                if (rowTotals[idx]) {
+                    rowTotals[idx].innerText = '₩' + formatKRW(rowSum);
+                }
+            });
+
+            document.getElementById('order-item-count').innerText = qtyInputs.length;
+            document.getElementById('order-total-qty').innerText = formatKRW(totalQty);
+            document.getElementById('order-total-amount').innerText = '₩' + formatKRW(totalPrice);
+            document.getElementById('order-footer-qty').innerText = formatKRW(totalQty) + ' 개';
+            document.getElementById('order-footer-price').innerText = '₩' + formatKRW(totalPrice);
+        }
+
+        // Submit Purchase Order Alert
+        function submitPurchaseOrder() {
+            const totalQty = document.getElementById('order-total-qty').innerText;
+            const totalAmt = document.getElementById('order-total-amount').innerText;
+
+            const modal = document.createElement('div');
+            modal.className = "fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4";
+            modal.innerHTML = `
+                <div class="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl text-center space-y-4">
+                    <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-2xl">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-900">발주서 전송이 완료되었습니다!</h3>
+                    <p class="text-xs text-slate-600">
+                        총 <strong class="text-slate-900">${totalQty}개</strong> (예상 금액: <strong class="text-indigo-600">${totalAmt}</strong>)의 긴급 발주 명세서가 지정된 거래처 담당자에게 전달되었습니다.
+                    </p>
+                    <button onclick="window.location.href='index.html'" class="w-full py-2.5 bg-indigo-600 text-white font-semibold text-xs rounded-xl hover:bg-indigo-700 transition-colors">
+                        대시보드로 이동하기
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        // Download Order Sheet as Excel
+        function downloadOrderExcel() {
+            const qtyInputs = document.querySelectorAll('.order-qty-input');
+            const exportData = urgentItems.map((item, idx) => {
+                const qty = qtyInputs[idx] ? parseInt(qtyInputs[idx].value) || 0 : item.reorderQty;
+                return {
+                    '품목코드': item.code,
+                    '품목명': item.name,
+                    '주요거래처': item.vendor,
+                    '거래처연락처': item.contact,
+                    '현재고': item.currentStock,
+                    '안전재고': item.safetyStock,
+                    '최종발주수량': qty,
+                    '단가(원)': item.unitPrice,
+                    '발주합계금액(원)': qty * item.unitPrice
+                };
+            });
+
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "긴급발주명세서");
+            XLSX.writeFile(wb, "긴급_거래처별_발주명세서.xlsx");
+        }
+
+        window.onload = function() {
+            renderOrderForm();
+        };
+    </script>
+</body>
+</html>
